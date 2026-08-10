@@ -1,0 +1,38 @@
+name: PHP Tests
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        required: false
+        type: string
+        default: "8.2"
+      coverage-file:
+        required: false
+        type: string
+        default: "coverage.xml"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          coverage: xdebug
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Run Pest tests with coverage
+        run: vendor/bin/pest --coverage-xml --coverage-clover=${{ inputs.coverage-file }}
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: ${{ inputs.coverage-file }}
