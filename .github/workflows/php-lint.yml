@@ -13,7 +13,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout plugin repo
+        uses: actions/checkout@v4
+
+      - name: Checkout ci-templates repo
+        uses: actions/checkout@v4
+        with:
+          repository: kindermaenner/ci-templates
+          path: ci-templates
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -28,4 +35,4 @@ jobs:
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
 
       - name: Run phpcs
-        run: vendor/bin/phpcs --standard=ci-templates/phpcs/phpcs-wp-plugin.xml src
+        run: vendor/bin/phpcs --standard=./ci-templates/phpcs/phpcs-wp-plugin.xml src
