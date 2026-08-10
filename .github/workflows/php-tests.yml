@@ -29,10 +29,10 @@ jobs:
         run: composer install --no-interaction --no-progress
 
       - name: Run Pest tests with coverage
-        run: vendor/bin/pest --coverage-xml --coverage-clover=${{ inputs.coverage-file }}
+        run: vendor/bin/pest --coverage --coverage-clover=coverage.xml --min=80
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: ${{ inputs.coverage-file }}
+          path: coverage.xml
