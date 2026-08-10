@@ -13,7 +13,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -23,6 +24,9 @@ jobs:
 
       - name: Install dependencies
         run: composer install --no-interaction --no-progress
+
+      - name: Verify php-cs-fixer exists
+        run: ls -la vendor/bin
 
       - name: Run php-cs-fixer
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
