@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<ruleset name="Custom PSR12">
+
+    <rule ref="PSR12">
+      <!-- Alle Zeilenlängenprüfungen deaktivieren -->
+      <exclude name="Generic.Files.LineLength"/>
+      <exclude name="Squiz.WhiteSpace.SuperfluousWhitespace"/>
+      <exclude name="Squiz.WhiteSpace.SemicolonSpacing"/>
+      <exclude name="Squiz.ControlStructures.ControlSignature"/>
+      <exclude name="PSR2.ControlStructures.ControlStructureSpacing"/>
+      
+      <!-- WordPress-Guard → Side Effect - aber gewollt, also Regel raus -->
+      <exclude name="PSR1.Files.SideEffects"/>
+      
+      <!-- WordPress nutzt snake_case -->
+      <exclude name="PSR1.Methods.CamelCapsMethodName"/>
+    </rule>
+
+</ruleset>
