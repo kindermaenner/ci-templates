@@ -20,6 +20,18 @@
         - name: Checkout repository
           uses: actions/checkout@v4
 
+        - name: Cache SonarQube scanner
+          uses: actions/cache@v4
+          with:
+            path: /opt/sonar-scanner
+            key: sonar-scanner-${{ runner.os }}
+
+        - name: Cache SonarQube plugins
+          uses: actions/cache@v4
+          with:
+            path: ~/.sonar/cache
+            key: sonar-cache-${{ runner.os }}
+
         - name: Download coverage artifact
           uses: actions/download-artifact@v4
           with:
