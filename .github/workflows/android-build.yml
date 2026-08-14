@@ -30,7 +30,7 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ inputs.run-instrumented-tests && 'macos-13' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -46,6 +46,11 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Enable KVM group perms
+        if: ${{ inputs.run-instrumented-tests }}
+        run: |
+          sudo chown $USER /dev/kvm
 
       - name: Gradle Cache
         uses: actions/cache@v4
