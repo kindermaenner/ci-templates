@@ -3,10 +3,10 @@ name: Common FTP Upload
 on:
   workflow_call:
     inputs:
-      uploads:
+      target-path:
         required: true
         type: string
-        description: "JSON array of upload jobs: [{source: 'local/path', target: 'remote/path'}]"
+        description: "target path in ftp server"
 
       artifact-name:
         required: false
@@ -32,34 +32,18 @@ jobs:
           name: ${{ inputs.artifact-name }}
           path: ./upload
 
-      - name: Parse upload list
-        id: parse
-        run: |
-          echo "UPLOADS<<EOF" >> $GITHUB_OUTPUT
-          echo '${{ inputs.uploads }}' >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
       - name: Perform uploads
         run: |
-          echo '${{ steps.parse.outputs.UPLOADS }}' | jq -c '.[]' | while read item; do
-            SRC=$(echo "$item" | jq -r '.source')
-            DST=$(echo "$item" | jq -r '.target')
+          DST="${{ inputs.target-path }}"
 
-            # Artefakt liegt immer unter ./upload/
-            FULL_SRC="./upload/$SRC"
+          find ./upload -type f | while read FILE; do
+            BASENAME=$(basename "$FILE")
+            TARGET_PATH="$DST/$BASENAME"
 
-            echo "Uploading all files from $FULL_SRC → $DST"
+            echo "Uploading $FILE → $TARGET_PATH"
 
-            # Alle Dateien rekursiv finden
-            find "$FULL_SRC" -type f | while read FILE; do
-              BASENAME=$(basename "$FILE")
-              TARGET_PATH="$DST/$BASENAME"
-
-              echo "Uploading $FILE → $TARGET_PATH"
-
-              curl --fail --ftp-ssl --ftp-create-dirs \
-                --user "${{ secrets.FTP_USER }}:${{ secrets.FTP_PASSWORD }}" \
-                --upload-file "$FILE" \
-                "ftp://${{ secrets.FTP_HOST }}/$TARGET_PATH"
-            done
+            curl --fail --ftp-ssl --ftp-create-dirs \
+              --user "${{ secrets.FTP_USER }}:${{ secrets.FTP_PASSWORD }}" \
+              --upload-file "$FILE" \
+              "ftp://${{ secrets.FTP_HOST }}/$TARGET_PATH"
           done
