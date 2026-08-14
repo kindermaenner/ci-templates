@@ -17,6 +17,11 @@ on:
         type: string
         default: "Debug" # Options: Debug, Release
 
+      run-instrumented-tests:
+        required: false
+        type: boolean
+        default: false
+
     secrets:
       RELEASE_KEYSTORE_BASE64:
         required: true
@@ -68,6 +73,18 @@ jobs:
             koverXmlReport \
             --stacktrace
 
+      - name: Instrumented Tests + Coverage
+        if: ${{ inputs.run-instrumented-tests }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTestCoverageReport --stacktrace
+
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -75,6 +92,7 @@ jobs:
           path: |
             **/lint-results*.xml
             **/report.xml
+            **/connectedDebugAndroidTestCoverageReport.xml
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
