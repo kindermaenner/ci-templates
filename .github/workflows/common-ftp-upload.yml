@@ -41,7 +41,7 @@ jobs:
 
       - name: Perform uploads
         run: |
-          echo "${{ steps.parse.outputs.UPLOADS }}" | jq -c '.[]' | while read item; do
+          echo '${{ steps.parse.outputs.UPLOADS }}' | jq -c '.[]' | while read item; do
             SRC=$(echo "$item" | jq -r '.source')
             DST=$(echo "$item" | jq -r '.target')
 
