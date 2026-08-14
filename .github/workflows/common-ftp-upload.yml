@@ -30,7 +30,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.artifact-name }}
-          path: .
+          path: ./upload
 
       - name: Parse upload list
         id: parse
@@ -42,22 +42,16 @@ jobs:
       - name: Perform uploads
         run: |
           echo '${{ steps.parse.outputs.UPLOADS }}' | jq -c '.[]' | while read item; do
-            SRC_DIR=$(echo "$item" | jq -r '.source')
+            SRC=$(echo "$item" | jq -r '.source')
             DST=$(echo "$item" | jq -r '.target')
 
-            # Tatsächlichen Ordner finden
-            SRC=$(find . -type d -name "$SRC_DIR" | head -n 1)
+            # Artefakt liegt immer unter ./upload/
+            FULL_SRC="./upload/$SRC"
 
-            if [ -z "$SRC" ]; then
-              echo "ERROR: Source directory '$SRC_DIR' not found after artifact download."
-              echo "Verfügbare Ordner:"
-              find . -maxdepth 3 -type d
-              exit 1
-            fi
+            echo "Uploading all files from $FULL_SRC → $DST"
 
-            echo "Uploading all files from $SRC → $DST"
-
-            find "$SRC" -type f | while read FILE; do
+            # Alle Dateien rekursiv finden
+            find "$FULL_SRC" -type f | while read FILE; do
               BASENAME=$(basename "$FILE")
               TARGET_PATH="$DST/$BASENAME"
 
