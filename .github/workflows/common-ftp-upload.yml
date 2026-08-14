@@ -45,10 +45,18 @@ jobs:
             SRC=$(echo "$item" | jq -r '.source')
             DST=$(echo "$item" | jq -r '.target')
 
-            echo "Uploading $SRC → $DST"
+            echo "Uploading all files from $SRC → $DST"
 
-            curl --fail --ftp-ssl --ftp-create-dirs \
-              --user "${{ secrets.FTP_USER }}:${{ secrets.FTP_PASSWORD }}" \
-              --upload-file "$SRC" \
-              "ftp://${{ secrets.FTP_HOST }}/$DST"
+            # Alle Dateien rekursiv finden
+            find "$SRC" -type f | while read FILE; do
+              BASENAME=$(basename "$FILE")
+              TARGET_PATH="$DST/$BASENAME"
+
+              echo "Uploading $FILE → $TARGET_PATH"
+
+              curl --fail --ftp-ssl --ftp-create-dirs \
+                --user "${{ secrets.FTP_USER }}:${{ secrets.FTP_PASSWORD }}" \
+                --upload-file "$FILE" \
+                "ftp://${{ secrets.FTP_HOST }}/$TARGET_PATH"
+            done
           done
