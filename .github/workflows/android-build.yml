@@ -30,7 +30,7 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ inputs.run-instrumented-tests && 'macos-latest' || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.run-instrumented-tests && 'macos-13' || 'ubuntu-latest' }}
 
     steps:
       - name: Checkout
@@ -77,11 +77,11 @@ jobs:
         if: ${{ inputs.run-instrumented-tests }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 33
+          api-level: 31
           target: google_apis
-          arch: arm64-v8a
+          arch: x86_64
           force-avd-creation: false
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -no-snapshot -no-audio -no-boot-anim -camera-back none
           disable-animations: true
           script: ./gradlew :app:connectedDebugAndroidTestCoverageReport --stacktrace
 
