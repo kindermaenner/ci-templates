@@ -1,0 +1,54 @@
+name: Common FTP Upload
+
+on:
+  workflow_call:
+    inputs:
+      uploads:
+        required: true
+        type: string
+        description: "JSON array of upload jobs: [{source: 'local/path', target: 'remote/path'}]"
+
+      artifact-name:
+        required: false
+        type: string
+        default: "build-artifacts"
+
+    secrets:
+      FTP_HOST:
+        required: true
+      FTP_USER:
+        required: true
+      FTP_PASSWORD:
+        required: true
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: .
+
+      - name: Parse upload list
+        id: parse
+        run: |
+          echo "UPLOADS<<EOF" >> $GITHUB_OUTPUT
+          echo '${{ inputs.uploads }}' >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Perform uploads
+        run: |
+          echo "${{ steps.parse.outputs.UPLOADS }}" | jq -c '.[]' | while read item; do
+            SRC=$(echo "$item" | jq -r '.source')
+            DST=$(echo "$item" | jq -r '.target')
+
+            echo "Uploading $SRC → $DST"
+
+            curl --fail --ftp-ssl --ftp-create-dirs \
+              --user "${{ secrets.FTP_USER }}:${{ secrets.FTP_PASSWORD }}" \
+              --upload-file "$SRC" \
+              "ftp://${{ secrets.FTP_HOST }}/$DST"
+          done

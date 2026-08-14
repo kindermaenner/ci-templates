@@ -1,0 +1,73 @@
+name: Common Android Build
+
+on:
+  workflow_call:
+    inputs:
+      keystore-file:
+        required: true
+        type: string
+
+      artifact-name:
+        required: false
+        type: string
+        default: "android-build"
+
+    secrets:
+      RELEASE_KEYSTORE_BASE64:
+        required: true
+      RELEASE_KEYSTORE_PASSWORD:
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+
+      - name: Restore release keystore
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/${{ inputs.keystore-file }}"
+          chmod 600 "$RUNNER_TEMP/${{ inputs.keystore-file }}"
+
+      - name: Build + Lint + Coverage
+        env:
+          RELEASE_KEYSTORE: ${{ runner.temp }}/${{ inputs.keystore-file }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew \
+            assembleDebug \
+            assembleRelease \
+            lint \
+            koverXmlReport \
+            --stacktrace
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: |
+            app/build/outputs/**/*.apk
+            **/lint-results*.xml
+            **/kover.xml
