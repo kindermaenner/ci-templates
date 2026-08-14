@@ -30,7 +30,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.run-instrumented-tests && 'macos-latest' || 'ubuntu-latest' }}
 
     steps:
       - name: Checkout
