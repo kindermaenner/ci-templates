@@ -63,11 +63,16 @@ jobs:
             koverXmlReport \
             --stacktrace
 
-      - name: Upload artifacts
+      - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact-name }}
+          name: coverage
           path: |
-            app/build/outputs/**/*.apk
             **/lint-results*.xml
             **/kover.xml
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: app/build/outputs/**/*.apk
