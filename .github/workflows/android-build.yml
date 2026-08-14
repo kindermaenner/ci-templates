@@ -74,7 +74,7 @@ jobs:
           name: coverage
           path: |
             **/lint-results*.xml
-            **/kover.xml
+            **/report.xml
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
