@@ -12,6 +12,11 @@ on:
         type: string
         default: "android-build"
 
+      build-type:
+        required: false
+        type: string
+        default: "Debug" # Options: Debug, Release
+
     secrets:
       RELEASE_KEYSTORE_BASE64:
         required: true
@@ -52,13 +57,13 @@ jobs:
 
       - name: Build + Lint + Coverage
         env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=true"
           RELEASE_KEYSTORE: ${{ runner.temp }}/${{ inputs.keystore-file }}
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
         run: |
           chmod +x gradlew
           ./gradlew \
-            assembleDebug \
-            assembleRelease \
+            assemble${{ inputs.build-type }} \
             lint \
             koverXmlReport \
             --stacktrace
