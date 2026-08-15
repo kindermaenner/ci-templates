@@ -56,10 +56,9 @@ jobs:
         if: ${{ inputs.run-instrumented-tests }}
         run: |
           sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
           sudo rm -rf /usr/local/share/boost
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          # Do NOT delete $AGENT_TOOLSDIRECTORY as it contains the JDK
 
       - name: Gradle Cache
         uses: actions/cache@v4
