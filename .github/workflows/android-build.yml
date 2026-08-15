@@ -106,7 +106,6 @@ jobs:
             **/lint-results*.xml
             **/report.xml
             **/connectedDebugAndroidTestCoverageReport.xml
-            **/*.ec
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
