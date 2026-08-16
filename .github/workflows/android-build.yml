@@ -96,7 +96,7 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -no-snapshot -no-audio -no-boot-anim -camera-back none
           disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTestCoverageReport --stacktrace
+          script: ./gradlew connectedDebugAndroidTestCoverageReport --stacktrace
 
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
