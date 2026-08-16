@@ -57,14 +57,6 @@ jobs:
         run: |
           sudo chown $USER /dev/kvm
 
-      - name: Free Disk Space (for Emulator)
-        if: ${{ inputs.run-instrumented-tests }}
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/share/boost
-          # Do NOT delete $AGENT_TOOLSDIRECTORY as it contains the JDK
-
       - name: Gradle Cache
         uses: actions/cache@v4
         with:
@@ -90,6 +82,19 @@ jobs:
             lint \
             koverXmlReport \
             --stacktrace
+
+      - name: Free Disk Space (for Emulator)
+        if: ${{ inputs.run-instrumented-tests }}
+        run: |
+          echo "=== BEFORE ==="
+          df -h /
+
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+
+          echo "=== AFTER ==="
+          df -h /
 
       - name: Instrumented Tests + Coverage
         if: ${{ inputs.run-instrumented-tests }}
