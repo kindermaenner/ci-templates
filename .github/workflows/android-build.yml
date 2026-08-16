@@ -86,15 +86,22 @@ jobs:
       - name: Free Disk Space (for Emulator)
         if: ${{ inputs.run-instrumented-tests }}
         run: |
-          echo "=== BEFORE ==="
+          echo "=== Disk before cleanup ==="
           df -h /
 
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf /usr/local/share/boost
 
-          echo "=== AFTER ==="
+          echo "=== Disk after cleanup ==="
           df -h /
+
+          echo "=== Gradle cache ==="
+          du -sh ~/.gradle/caches 2>/dev/null || true
+
+          echo "=== Android ==="
+          du -sh ~/.android 2>/dev/null || true
+          du -sh "$ANDROID_HOME" 2>/dev/null || true
 
       - name: Instrumented Tests + Coverage
         if: ${{ inputs.run-instrumented-tests }}
