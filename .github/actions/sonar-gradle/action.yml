@@ -1,0 +1,26 @@
+name: "SonarQube Gradle Scan"
+description: "Executes SonarQube Scan via Gradle directly on the runner without artifact upload/download"
+
+inputs:
+  sonar-token:
+    description: "SonarQube Authentication Token"
+    required: true
+  sonar-host-url:
+    description: "SonarQube Server Host URL"
+    required: true
+  gradle-args:
+    description: "Additional Gradle CLI arguments"
+    required: false
+    default: "--no-configuration-cache --stacktrace"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run SonarQube Scan via Gradle
+      shell: bash
+      env:
+        SONAR_TOKEN: ${{ inputs.sonar-token }}
+        SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
+      run: |
+        chmod +x gradlew
+        ./gradlew sonar ${{ inputs.gradle-args }}

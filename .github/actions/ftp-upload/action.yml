@@ -1,0 +1,61 @@
+name: "FTP Upload"
+description: "Uploads build files directly to an FTP server via curl without creating GitHub artifacts"
+
+inputs:
+  source-path:
+    description: "Source directory, file, or glob pattern to upload (e.g. app/build/outputs/**/*.apk)"
+    required: true
+  target-path:
+    description: "Target directory on the FTP server"
+    required: true
+  ftp-host:
+    description: "FTP Server Host"
+    required: true
+  ftp-user:
+    description: "FTP Username"
+    required: true
+  ftp-password:
+    description: "FTP Password"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Perform FTP upload
+      shell: bash
+      run: |
+        shopt -s globstar nullglob
+        SRC="${{ inputs.source-path }}"
+        DST="${{ inputs.target-path }}"
+
+        echo "Starting FTP upload from: $SRC to target: $DST"
+
+        FILES=()
+        if [ -f "$SRC" ]; then
+          FILES+=("$SRC")
+        elif [ -d "$SRC" ]; then
+          while IFS= read -r -d '' file; do
+            FILES+=("$file")
+          done < <(find "$SRC" -type f -print0)
+        else
+          for file in $SRC; do
+            if [ -f "$file" ]; then
+              FILES+=("$file")
+            fi
+          done
+        fi
+
+        if [ ${#FILES[@]} -eq 0 ]; then
+          echo "Warning: No files found to upload matching '$SRC'"
+        else
+          for FILE in "${FILES[@]}"; do
+            BASENAME=$(basename "$FILE")
+            TARGET_PATH="$DST/$BASENAME"
+            echo "Uploading $FILE -> $TARGET_PATH"
+            curl --fail --ftp-ssl --ftp-create-dirs \
+              --user "${{ inputs.ftp-user }}:${{ inputs.ftp-password }}" \
+              --upload-file "$FILE" \
+              "ftp://${{ inputs.ftp-host }}/$TARGET_PATH"
+          done
+          echo "FTP upload completed successfully (${#FILES[@]} files uploaded)."
+        fi

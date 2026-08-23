@@ -1,0 +1,53 @@
+name: "SonarQube CLI Scan"
+description: "Executes SonarQube CLI scanner directly on the runner without artifact upload/download"
+
+inputs:
+  sonar-properties:
+    description: "SonarQube scanner properties (e.g. -Dsonar.projectKey=...)"
+    required: true
+  sonar-token:
+    description: "SonarQube Authentication Token"
+    required: true
+  sonar-host-url:
+    description: "SonarQube Server Host URL"
+    required: true
+  scanner-version:
+    description: "SonarScanner CLI version to use"
+    required: false
+    default: "5.0.1.3006"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Cache SonarQube scanner
+      uses: actions/cache@v4
+      with:
+        path: /opt/sonar-scanner
+        key: sonar-scanner-${{ runner.os }}-${{ inputs.scanner-version }}
+
+    - name: Cache SonarQube plugins
+      uses: actions/cache@v4
+      with:
+        path: ~/.sonar/cache
+        key: sonar-cache-${{ runner.os }}
+
+    - name: Install SonarScanner CLI
+      shell: bash
+      run: |
+        if [ ! -f "/opt/sonar-scanner/bin/sonar-scanner" ]; then
+          echo "Downloading SonarScanner CLI ${{ inputs.scanner-version }}..."
+          wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${{ inputs.scanner-version }}-linux.zip
+          unzip -q sonar-scanner-cli-${{ inputs.scanner-version }}-linux.zip
+          sudo rm -rf /opt/sonar-scanner
+          sudo mv sonar-scanner-${{ inputs.scanner-version }}-linux /opt/sonar-scanner
+          rm -f sonar-scanner-cli-${{ inputs.scanner-version }}-linux.zip
+        fi
+        echo "/opt/sonar-scanner/bin" >> $GITHUB_PATH
+
+    - name: Run SonarQube Scan
+      shell: bash
+      env:
+        SONAR_TOKEN: ${{ inputs.sonar-token }}
+        SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
+      run: |
+        /opt/sonar-scanner/bin/sonar-scanner ${{ inputs.sonar-properties }}

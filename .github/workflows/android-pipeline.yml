@@ -1,0 +1,198 @@
+name: Common Android Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      keystore-file:
+        description: "Filename of the keystore to restore"
+        required: true
+        type: string
+
+      build-type:
+        description: "Gradle build type (e.g. Debug, Release)"
+        required: false
+        type: string
+        default: "Debug"
+
+      run-instrumented-tests:
+        description: "Whether to run instrumented emulator tests"
+        required: false
+        type: boolean
+        default: false
+
+      test-api-level:
+        description: "Android API level for the emulator"
+        required: false
+        type: string
+        default: "31"
+
+      run-sonar:
+        description: "Whether to run SonarQube Gradle Scan"
+        required: false
+        type: boolean
+        default: true
+
+      gradle-sonar-args:
+        description: "Additional arguments for the Sonar Gradle task"
+        required: false
+        type: string
+        default: "--no-configuration-cache --stacktrace"
+
+      run-ftp-upload:
+        description: "Whether to upload built APKs to FTP"
+        required: false
+        type: boolean
+        default: false
+
+      ftp-source-path:
+        description: "Source directory/path or glob for APKs to upload"
+        required: false
+        type: string
+        default: "app/build/outputs/**/*.apk"
+
+      ftp-target-path:
+        description: "Target directory on the FTP server"
+        required: false
+        type: string
+        default: ""
+
+      trigger-badges:
+        description: "Whether to trigger the badge update repository"
+        required: false
+        type: boolean
+        default: true
+
+      project-key:
+        description: "Project key for Sonar/Badges (defaults to repo name)"
+        required: false
+        type: string
+        default: ""
+
+    secrets:
+      RELEASE_KEYSTORE_BASE64:
+        required: true
+      RELEASE_KEYSTORE_PASSWORD:
+        required: true
+      SONAR_TOKEN:
+        required: false
+      SONAR_HOST_URL:
+        required: false
+      FTP_HOST:
+        required: false
+      FTP_USER:
+        required: false
+      FTP_PASSWORD:
+        required: false
+      BADGE_APP_ID:
+        required: false
+      BADGE_APP_PRIVATE_KEY:
+        required: false
+
+jobs:
+  pipeline:
+    name: Android CI Pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Enable KVM group perms
+        if: ${{ inputs.run-instrumented-tests }}
+        run: |
+          sudo chown $USER /dev/kvm
+
+      - name: Gradle Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+
+      - name: Restore release keystore
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/${{ inputs.keystore-file }}"
+          chmod 600 "$RUNNER_TEMP/${{ inputs.keystore-file }}"
+
+      - name: Build + Lint + Coverage
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=true"
+          RELEASE_KEYSTORE: ${{ runner.temp }}/${{ inputs.keystore-file }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew \
+            assemble${{ inputs.build-type }} \
+            lint \
+            koverXmlReport \
+            --stacktrace
+
+      - name: Free Disk Space (for Emulator)
+        if: ${{ inputs.run-instrumented-tests }}
+        run: |
+          echo "=== Disk before cleanup ==="
+          df -h /
+
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+
+          echo "=== Disk after cleanup ==="
+          df -h /
+
+          echo "=== Gradle cache ==="
+          du -sh ~/.gradle/caches 2>/dev/null || true
+
+          echo "=== Android ==="
+          du -sh ~/.android 2>/dev/null || true
+          du -sh "$ANDROID_HOME" 2>/dev/null || true
+
+      - name: Instrumented Tests + Coverage
+        if: ${{ inputs.run-instrumented-tests }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ inputs.test-api-level }}
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: -no-window -no-snapshot -no-audio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ./gradlew connectedDebugAndroidTestCoverageReport --stacktrace
+
+      - name: Run SonarQube Scan via Gradle
+        if: ${{ inputs.run-sonar && secrets.SONAR_TOKEN != '' }}
+        uses: kindermaenner/ci-templates/.github/actions/sonar-gradle@main
+        with:
+          sonar-token: ${{ secrets.SONAR_TOKEN }}
+          sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
+          gradle-args: ${{ inputs.gradle-sonar-args }}
+
+      - name: Perform FTP Upload
+        if: ${{ inputs.run-ftp-upload && secrets.FTP_HOST != '' }}
+        uses: kindermaenner/ci-templates/.github/actions/ftp-upload@main
+        with:
+          source-path: ${{ inputs.ftp-source-path }}
+          target-path: ${{ inputs.ftp-target-path }}
+          ftp-host: ${{ secrets.FTP_HOST }}
+          ftp-user: ${{ secrets.FTP_USER }}
+          ftp-password: ${{ secrets.FTP_PASSWORD }}
+
+      - name: Trigger Sonar Badge Generation
+        if: ${{ inputs.trigger-badges && secrets.BADGE_APP_ID != '' }}
+        uses: kindermaenner/ci-templates/.github/actions/badge-trigger@main
+        with:
+          project-key: ${{ inputs.project-key }}
+          badge-app-id: ${{ secrets.BADGE_APP_ID }}
+          badge-app-private-key: ${{ secrets.BADGE_APP_PRIVATE_KEY }}

@@ -1,29 +1,131 @@
 # ci-templates
 
-This repository contains reusable CI templates for our GitHub projects.
+This repository contains reusable CI templates, composite actions, and pipelines for our GitHub projects.
 
-The workflows provide standardized build, linting, testing, security checks, SonarQube integration, and badge updates across multiple languages and stacks (Android/Kotlin, PHP, Python).
-They can be included in other repositories using GitHub’s workflow_call mechanism to avoid duplication and maintain consistent CI behavior.
+It is designed with a **Zero-Artifact Architecture**: workflows execute steps on a single runner or use composite actions to avoid unnecessary `upload-artifact` usage, saving GitHub Actions storage budget and accelerating CI pipelines.
 
-# included areas
-- Android: ktlint, detekt, build, tests, SonarQube, badge updates
-- PHP: phpcs, php-cs-fixer, PHPUnit, dependency security checks
-- Python: flake8, black, pytest, pip-audit
-- Common: badge trigger, SonarQube trigger, Docker-related checks
+---
 
-# usage
+## Standard Pipelines (Reusable Workflows)
 
-To use a template in another repository:
+Standard pipelines run all steps (Lint, Test, SonarQube, Badges, Deploy) in **a single job on one runner**, eliminating intermediate artifact upload/download.
+
+### 1. WordPress Plugin Pipeline
+Runs PHPCS, PHP-CS-Fixer, Pest tests (with code coverage), SonarQube CLI scan, and badge trigger.
+
 ```yaml
+# In your wordpress plugin repo: .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
 jobs:
-  lint:
-    uses: kindermaenner/ci-templates/.github/workflows/android-lint.yml@main
+  ci:
+    uses: kindermaenner/ci-templates/.github/workflows/wordpress-plugin-pipeline.yml@main
+    with:
+      php-version: "8.2"
+      sonar-properties: "-Dsonar.projectKey=my-plugin"
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      BADGE_APP_ID: ${{ secrets.BADGE_APP_ID }}
+      BADGE_APP_PRIVATE_KEY: ${{ secrets.BADGE_APP_PRIVATE_KEY }}
 ```
 
-# goal
+### 2. Android App Pipeline
+Runs Gradle Build, Lint, Kover coverage, optional instrumented tests, SonarQube scan via Gradle, optional FTP upload, and badge trigger.
 
-Provide a central, maintainable set of CI building blocks that can be reused across all projects, reducing duplication and ensuring consistent quality standards.
+```yaml
+# In your android app repo: .github/workflows/ci.yml
+name: CI
 
-# license
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    uses: kindermaenner/ci-templates/.github/workflows/android-pipeline.yml@main
+    with:
+      keystore-file: "release.keystore"
+      build-type: "Release"
+      run-sonar: true
+      run-ftp-upload: false
+    secrets:
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      BADGE_APP_ID: ${{ secrets.BADGE_APP_ID }}
+      BADGE_APP_PRIVATE_KEY: ${{ secrets.BADGE_APP_PRIVATE_KEY }}
+```
+
+---
+
+## Composite Actions (`.github/actions/`)
+
+For custom pipelines, you can include individual composite actions directly as steps within your job:
+
+### SonarQube CLI Scan (`.github/actions/sonar-cli`)
+Executes the SonarQube CLI scanner directly on the runner without uploading/downloading coverage artifacts.
+
+```yaml
+- name: Run SonarQube Scan
+  uses: kindermaenner/ci-templates/.github/actions/sonar-cli@main
+  with:
+    sonar-properties: "-Dsonar.projectKey=my-project"
+    sonar-token: ${{ secrets.SONAR_TOKEN }}
+    sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
+```
+
+### SonarQube Gradle Scan (`.github/actions/sonar-gradle`)
+Executes Gradle Sonar task directly on the runner.
+
+```yaml
+- name: Run SonarQube Gradle Scan
+  uses: kindermaenner/ci-templates/.github/actions/sonar-gradle@main
+  with:
+    sonar-token: ${{ secrets.SONAR_TOKEN }}
+    sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
+```
+
+### FTP Upload (`.github/actions/ftp-upload`)
+Uploads build outputs (e.g., APKs or zip packages) directly via `curl --ftp-ssl` without creating GitHub artifacts.
+
+```yaml
+- name: Upload APKs to FTP
+  uses: kindermaenner/ci-templates/.github/actions/ftp-upload@main
+  with:
+    source-path: "app/build/outputs/apk/release"
+    target-path: "apps/my-app"
+    ftp-host: ${{ secrets.FTP_HOST }}
+    ftp-user: ${{ secrets.FTP_USER }}
+    ftp-password: ${{ secrets.FTP_PASSWORD }}
+```
+
+### Sonar Badge Trigger (`.github/actions/badge-trigger`)
+Triggers the centralized badge repository update workflow via GitHub App Token.
+
+```yaml
+- name: Trigger Badge Update
+  uses: kindermaenner/ci-templates/.github/actions/badge-trigger@main
+  with:
+    badge-app-id: ${{ secrets.BADGE_APP_ID }}
+    badge-app-private-key: ${{ secrets.BADGE_APP_PRIVATE_KEY }}
+```
+
+---
+
+## Housekeeping & Cleanup
+
+* `common-github-cleanup.yml`: Scheduled daily job to clean up workflow runs older than 30 days, clear old caches, and delete orphaned artifacts older than 1 day.
+
+---
+
+## License
 
 This repository is licensed under the MIT License.

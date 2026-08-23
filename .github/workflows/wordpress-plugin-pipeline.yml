@@ -1,0 +1,131 @@
+name: WordPress Plugin Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        description: "PHP version to use"
+        required: false
+        type: string
+        default: "8.2"
+
+      min-coverage:
+        description: "Minimum test coverage percentage"
+        required: false
+        type: string
+        default: "80"
+
+      run-lint:
+        description: "Whether to run php-cs-fixer and phpcs"
+        required: false
+        type: boolean
+        default: true
+
+      run-tests:
+        description: "Whether to run Pest tests with coverage"
+        required: false
+        type: boolean
+        default: true
+
+      run-sonar:
+        description: "Whether to run SonarQube CLI analysis"
+        required: false
+        type: boolean
+        default: true
+
+      sonar-properties:
+        description: "SonarQube scanner properties (e.g. -Dsonar.projectKey=...)"
+        required: false
+        type: string
+        default: ""
+
+      trigger-badges:
+        description: "Whether to trigger the badge update repository"
+        required: false
+        type: boolean
+        default: true
+
+      project-key:
+        description: "Project key for Sonar/Badges (defaults to repo name)"
+        required: false
+        type: string
+        default: ""
+
+      templates-ref:
+        description: "Branch/Tag of ci-templates to use for configs/actions"
+        required: false
+        type: string
+        default: "main"
+
+    secrets:
+      SONAR_TOKEN:
+        required: false
+      SONAR_HOST_URL:
+        required: false
+      BADGE_APP_ID:
+        required: false
+      BADGE_APP_PRIVATE_KEY:
+        required: false
+
+jobs:
+  ci:
+    name: WordPress Plugin CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout ci-templates (for PHPCS standards)
+        if: ${{ inputs.run-lint }}
+        uses: actions/checkout@v4
+        with:
+          repository: kindermaenner/ci-templates
+          ref: ${{ inputs.templates-ref }}
+          path: ci-templates
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          coverage: ${{ inputs.run-tests && 'xdebug' || 'none' }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Run php-cs-fixer
+        if: ${{ inputs.run-lint }}
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
+      - name: Run phpcs
+        if: ${{ inputs.run-lint }}
+        run: vendor/bin/phpcs --standard=./ci-templates/phpcs/phpcs-wp-plugin.xml src
+
+      - name: Run Pest tests with coverage
+        if: ${{ inputs.run-tests }}
+        run: vendor/bin/pest --coverage --coverage-clover=coverage.xml --min=${{ inputs.min-coverage }}
+
+      - name: Run SonarQube CLI Scan
+        if: ${{ inputs.run-sonar && secrets.SONAR_TOKEN != '' }}
+        uses: kindermaenner/ci-templates/.github/actions/sonar-cli@main
+        with:
+          sonar-properties: ${{ inputs.sonar-properties }}
+          sonar-token: ${{ secrets.SONAR_TOKEN }}
+          sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Trigger Sonar Badge Generation
+        if: ${{ inputs.trigger-badges && secrets.BADGE_APP_ID != '' }}
+        uses: kindermaenner/ci-templates/.github/actions/badge-trigger@main
+        with:
+          project-key: ${{ inputs.project-key }}
+          badge-app-id: ${{ secrets.BADGE_APP_ID }}
+          badge-app-private-key: ${{ secrets.BADGE_APP_PRIVATE_KEY }}

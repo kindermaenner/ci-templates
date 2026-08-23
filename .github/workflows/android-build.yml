@@ -27,6 +27,18 @@ on:
         type: string
         default: "31"
 
+      upload-artifacts:
+        description: "Upload build and coverage artifacts (disabled by default to prevent budget consumption)"
+        required: false
+        type: boolean
+        default: false
+
+      retention-days:
+        description: "Retention days if artifacts are uploaded"
+        required: false
+        type: number
+        default: 1
+
     secrets:
       RELEASE_KEYSTORE_BASE64:
         required: true
@@ -116,6 +128,7 @@ jobs:
           script: ./gradlew connectedDebugAndroidTestCoverageReport --stacktrace
 
       - name: Upload coverage artifacts
+        if: ${{ inputs.upload-artifacts }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage
@@ -123,9 +136,12 @@ jobs:
             **/lint-results*.xml
             **/report.xml
             **/connectedDebugAndroidTestCoverageReport.xml
+          retention-days: ${{ inputs.retention-days }}
 
       - name: Upload APK artifacts
+        if: ${{ inputs.upload-artifacts }}
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
+          name: ${{ inputs.artifact-name }}
           path: app/build/outputs/**/*.apk
+          retention-days: ${{ inputs.retention-days }}

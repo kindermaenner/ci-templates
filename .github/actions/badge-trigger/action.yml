@@ -1,0 +1,63 @@
+name: "Sonar Badge Trigger"
+description: "Triggers the sonar badge generation workflow via GitHub App token directly from a workflow step"
+
+inputs:
+  project-key:
+    description: "Sonar project key (defaults to repository name)"
+    required: false
+    default: ""
+  badge-app-id:
+    description: "GitHub App ID for badge repo access"
+    required: true
+  badge-app-private-key:
+    description: "GitHub App Private Key for badge repo access"
+    required: true
+  badges-repo-owner:
+    description: "Owner of the sonar-badges repository"
+    required: false
+    default: "kindermaenner"
+  badges-repo-name:
+    description: "Name of the sonar-badges repository"
+    required: false
+    default: "sonar-badges"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Determine project key
+      id: project
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.project-key }}" ]; then
+          echo "value=${{ github.event.repository.name }}" >> $GITHUB_OUTPUT
+        else
+          echo "value=${{ inputs.project-key }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Generate GitHub App token
+      id: app-token
+      uses: actions/create-github-app-token@v3
+      with:
+        app-id: ${{ inputs.badge-app-id }}
+        private-key: ${{ inputs.badge-app-private-key }}
+        owner: ${{ inputs.badges-repo-owner }}
+        repositories: ${{ inputs.badges-repo-name }}
+        permission-actions: write
+
+    - name: Trigger badge generation
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      run: |
+        curl --fail-with-body -X POST \
+          -H "Authorization: Bearer $GH_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          -H "Content-Type: application/json" \
+          https://api.github.com/repos/${{ inputs.badges-repo-owner }}/${{ inputs.badges-repo-name }}/actions/workflows/update.yml/dispatches \
+          -d "{
+            \"ref\": \"main\",
+            \"inputs\": {
+              \"project\": \"${{ steps.project.outputs.value }}\"
+            }
+          }"
