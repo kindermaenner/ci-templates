@@ -4,13 +4,16 @@ description: "Executes SonarQube CLI scanner directly on the runner without arti
 inputs:
   sonar-properties:
     description: "SonarQube scanner properties (e.g. -Dsonar.projectKey=...)"
-    required: true
+    required: false
+    default: ""
   sonar-token:
     description: "SonarQube Authentication Token"
-    required: true
+    required: false
+    default: ""
   sonar-host-url:
     description: "SonarQube Server Host URL"
-    required: true
+    required: false
+    default: ""
   scanner-version:
     description: "SonarScanner CLI version to use"
     required: false
@@ -34,6 +37,10 @@ runs:
     - name: Install SonarScanner CLI
       shell: bash
       run: |
+        if [ -z "${{ inputs.sonar-token }}" ] || [ -z "${{ inputs.sonar-host-url }}" ]; then
+          echo "Sonar credentials missing, skipping installation."
+          exit 0
+        fi
         if [ ! -f "/opt/sonar-scanner/bin/sonar-scanner" ]; then
           echo "Downloading SonarScanner CLI ${{ inputs.scanner-version }}..."
           wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${{ inputs.scanner-version }}-linux.zip
@@ -50,4 +57,8 @@ runs:
         SONAR_TOKEN: ${{ inputs.sonar-token }}
         SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
       run: |
+        if [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_HOST_URL" ]; then
+          echo "Warning: SONAR_TOKEN or SONAR_HOST_URL is not set. Skipping SonarQube CLI Scan."
+          exit 0
+        fi
         /opt/sonar-scanner/bin/sonar-scanner ${{ inputs.sonar-properties }}

@@ -4,10 +4,12 @@ description: "Executes SonarQube Scan via Gradle directly on the runner without 
 inputs:
   sonar-token:
     description: "SonarQube Authentication Token"
-    required: true
+    required: false
+    default: ""
   sonar-host-url:
     description: "SonarQube Server Host URL"
-    required: true
+    required: false
+    default: ""
   gradle-args:
     description: "Additional Gradle CLI arguments"
     required: false
@@ -22,5 +24,9 @@ runs:
         SONAR_TOKEN: ${{ inputs.sonar-token }}
         SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
       run: |
+        if [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_HOST_URL" ]; then
+          echo "Warning: SONAR_TOKEN or SONAR_HOST_URL is not set. Skipping SonarQube Gradle Scan."
+          exit 0
+        fi
         chmod +x gradlew
         ./gradlew sonar ${{ inputs.gradle-args }}

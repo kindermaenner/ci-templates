@@ -10,13 +10,16 @@ inputs:
     required: true
   ftp-host:
     description: "FTP Server Host"
-    required: true
+    required: false
+    default: ""
   ftp-user:
     description: "FTP Username"
-    required: true
+    required: false
+    default: ""
   ftp-password:
     description: "FTP Password"
-    required: true
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -24,6 +27,11 @@ runs:
     - name: Perform FTP upload
       shell: bash
       run: |
+        if [ -z "${{ inputs.ftp-host }}" ] || [ -z "${{ inputs.ftp-user }}" ] || [ -z "${{ inputs.ftp-password }}" ]; then
+          echo "Warning: FTP credentials/host not configured. Skipping FTP upload."
+          exit 0
+        fi
+
         shopt -s globstar nullglob
         SRC="${{ inputs.source-path }}"
         DST="${{ inputs.target-path }}"

@@ -115,7 +115,7 @@ jobs:
         run: vendor/bin/pest --coverage --coverage-clover=coverage.xml --min=${{ inputs.min-coverage }}
 
       - name: Run SonarQube CLI Scan
-        if: ${{ inputs.run-sonar && secrets.SONAR_TOKEN != '' }}
+        if: ${{ inputs.run-sonar }}
         uses: kindermaenner/ci-templates/.github/actions/sonar-cli@main
         with:
           sonar-properties: ${{ inputs.sonar-properties }}
@@ -123,7 +123,7 @@ jobs:
           sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Trigger Sonar Badge Generation
-        if: ${{ inputs.trigger-badges && secrets.BADGE_APP_ID != '' }}
+        if: ${{ inputs.trigger-badges }}
         uses: kindermaenner/ci-templates/.github/actions/badge-trigger@main
         with:
           project-key: ${{ inputs.project-key }}

@@ -8,10 +8,12 @@ inputs:
     default: ""
   badge-app-id:
     description: "GitHub App ID for badge repo access"
-    required: true
+    required: false
+    default: ""
   badge-app-private-key:
     description: "GitHub App Private Key for badge repo access"
-    required: true
+    required: false
+    default: ""
   badges-repo-owner:
     description: "Owner of the sonar-badges repository"
     required: false
@@ -35,6 +37,7 @@ runs:
         fi
 
     - name: Generate GitHub App token
+      if: ${{ inputs.badge-app-id != '' && inputs.badge-app-private-key != '' }}
       id: app-token
       uses: actions/create-github-app-token@v3
       with:
@@ -45,6 +48,7 @@ runs:
         permission-actions: write
 
     - name: Trigger badge generation
+      if: ${{ inputs.badge-app-id != '' && inputs.badge-app-private-key != '' }}
       shell: bash
       env:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
