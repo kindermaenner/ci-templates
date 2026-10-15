@@ -63,6 +63,18 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: false
+          packages: ''
+
+      - name: Accept Android SDK licenses and install packages
+        shell: bash
+        run: |
+          # sdkmanager can prompt despite the setup action supplying stdin.
+          # Disable pipefail so the pipeline status reflects sdkmanager, not `yes` closing its pipe.
+          set +o pipefail
+          yes | sdkmanager --licenses
+          sdkmanager tools platform-tools
 
       - name: Enable KVM group perms
         if: ${{ inputs.run-instrumented-tests }}
