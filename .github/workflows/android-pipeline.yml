@@ -109,7 +109,7 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           accept-android-sdk-licenses: false
-          packages: ''
+          packages: platform-tools
 
       - name: Accept Android SDK licenses and install packages
         shell: bash
@@ -118,7 +118,6 @@ jobs:
           # Disable pipefail so the pipeline status reflects sdkmanager, not `yes` closing its pipe.
           set +o pipefail
           yes | sdkmanager --licenses
-          sdkmanager tools platform-tools
 
       - name: Enable KVM group perms
         if: ${{ inputs.run-instrumented-tests }}
