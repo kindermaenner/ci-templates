@@ -20,21 +20,36 @@ inputs:
     description: "FTP Password"
     required: false
     default: ""
+  fail-on-error:
+    description: "Fail instead of skipping when credentials or source files are missing"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
   steps:
     - name: Perform FTP upload
       shell: bash
+      env:
+        FTP_HOST: ${{ inputs.ftp-host }}
+        FTP_USER: ${{ inputs.ftp-user }}
+        FTP_PASSWORD: ${{ inputs.ftp-password }}
+        SOURCE_PATH: ${{ inputs.source-path }}
+        TARGET_PATH: ${{ inputs.target-path }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
-        if [ -z "${{ inputs.ftp-host }}" ] || [ -z "${{ inputs.ftp-user }}" ] || [ -z "${{ inputs.ftp-password }}" ]; then
+        if [ -z "$FTP_HOST" ] || [ -z "$FTP_USER" ] || [ -z "$FTP_PASSWORD" ]; then
+          if [ "$FAIL_ON_ERROR" = "true" ]; then
+            echo "::error::FTP credentials or host are not configured."
+            exit 1
+          fi
           echo "Warning: FTP credentials/host not configured. Skipping FTP upload."
           exit 0
         fi
 
         shopt -s globstar nullglob
-        SRC="${{ inputs.source-path }}"
-        DST="${{ inputs.target-path }}"
+        SRC="$SOURCE_PATH"
+        DST="$TARGET_PATH"
 
         echo "Starting FTP upload from: $SRC to target: $DST"
 
@@ -54,6 +69,10 @@ runs:
         fi
 
         if [ ${#FILES[@]} -eq 0 ]; then
+          if [ "$FAIL_ON_ERROR" = "true" ]; then
+            echo "::error::No files found to upload matching '$SRC'."
+            exit 1
+          fi
           echo "Warning: No files found to upload matching '$SRC'"
         else
           for FILE in "${FILES[@]}"; do
@@ -61,9 +80,9 @@ runs:
             TARGET_PATH="$DST/$BASENAME"
             echo "Uploading $FILE -> $TARGET_PATH"
             curl --fail --ftp-ssl --ftp-create-dirs \
-              --user "${{ inputs.ftp-user }}:${{ inputs.ftp-password }}" \
+              --user "$FTP_USER:$FTP_PASSWORD" \
               --upload-file "$FILE" \
-              "ftp://${{ inputs.ftp-host }}/$TARGET_PATH"
+              "ftp://$FTP_HOST/$TARGET_PATH"
           done
           echo "FTP upload completed successfully (${#FILES[@]} files uploaded)."
         fi

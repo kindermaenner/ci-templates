@@ -1,0 +1,177 @@
+name: WordPress Plugin Release
+
+on:
+  workflow_call:
+    inputs:
+      plugin-file:
+        description: "Plugin entrypoint, relative to the repository root"
+        required: true
+        type: string
+      plugin-slug:
+        description: "Plugin directory and package slug"
+        required: true
+        type: string
+      ftp-target-path:
+        description: "FTP directory corresponding to the public plugin update URL"
+        required: true
+        type: string
+      public-url:
+        description: "Public HTTPS base URL for this plugin's update files"
+        required: true
+        type: string
+      php-version:
+        description: "PHP version used to install production Composer dependencies"
+        required: false
+        type: string
+        default: "8.4"
+
+    secrets:
+      FTP_HOST:
+        required: true
+      FTP_USER:
+        required: true
+      FTP_PASSWORD:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build and publish plugin release
+    if: ${{ github.ref_type == 'tag' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out plugin
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          tools: composer
+
+      - name: Validate release tag and plugin entrypoint
+        shell: bash
+        env:
+          PLUGIN_FILE: ${{ inputs.plugin-file }}
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tags must use the vMAJOR.MINOR.PATCH format (for example v1.2.3)."
+            exit 1
+          fi
+          if [ ! -f "$PLUGIN_FILE" ]; then
+            echo "::error::Plugin entrypoint '$PLUGIN_FILE' does not exist."
+            exit 1
+          fi
+
+      - name: Install production dependencies
+        run: composer install --no-dev --no-interaction --no-progress --prefer-dist --classmap-authoritative
+
+      - name: Build plugin ZIP and update manifest
+        shell: bash
+        env:
+          PLUGIN_FILE: ${{ inputs.plugin-file }}
+          PLUGIN_SLUG: ${{ inputs.plugin-slug }}
+          PUBLIC_URL: ${{ inputs.public-url }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          ZIP_NAME="${PLUGIN_SLUG}.zip"
+          STAGING_DIR="build/package/${PLUGIN_SLUG}"
+          VERSION_DIR="build/release/${PLUGIN_SLUG}/versions/${GITHUB_REF_NAME}"
+          DOWNLOAD_URL="${PUBLIC_URL%/}/versions/${GITHUB_REF_NAME}/${ZIP_NAME}"
+
+          mkdir -p "$STAGING_DIR"
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.gitignore' \
+            --exclude='tests/' \
+            --exclude='vendor/bin/' \
+            --exclude='composer.json' \
+            --exclude='composer.lock' \
+            --exclude='coverage*' \
+            --exclude='phpunit.xml*' \
+            --exclude='phpstan*' \
+            --exclude='.php-cs-fixer*' \
+            --exclude='build/' \
+            ./ "$STAGING_DIR/"
+
+          if [ ! -f "$STAGING_DIR/vendor/autoload.php" ]; then
+            echo "::error::Production package does not contain vendor/autoload.php."
+            exit 1
+          fi
+          if [ ! -f "$STAGING_DIR/$PLUGIN_FILE" ]; then
+            echo "::error::Plugin entrypoint '$PLUGIN_FILE' is missing from the package."
+            exit 1
+          fi
+
+          python3 - "$STAGING_DIR/$PLUGIN_FILE" "$VERSION" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          version = sys.argv[2]
+          source = path.read_text(encoding="utf-8")
+          updated, replacements = re.subn(
+              r"(?m)^(\s*\*\s*Version:\s*).+$",
+              lambda match: match.group(1) + version,
+              source,
+              count=1,
+          )
+          if replacements != 1:
+              raise SystemExit(f"Could not find exactly one Version header in {path}.")
+          path.write_text(updated, encoding="utf-8")
+          PY
+
+          mkdir -p "$VERSION_DIR"
+          (
+            cd build/package
+            zip -qr "$RUNNER_TEMP/${PLUGIN_SLUG}-${VERSION}.zip" "$PLUGIN_SLUG"
+          )
+          mv "$RUNNER_TEMP/${PLUGIN_SLUG}-${VERSION}.zip" "$VERSION_DIR/$ZIP_NAME"
+          sha256sum "$VERSION_DIR/$ZIP_NAME" > "$VERSION_DIR/$ZIP_NAME.sha256"
+
+          python3 - "$PLUGIN_SLUG" "$VERSION" "$DOWNLOAD_URL" "$VERSION_DIR/manifest.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          slug, version, download_url, output = sys.argv[1:]
+          archive = pathlib.Path(output).parent / f"{slug}.zip"
+          manifest = {
+              "slug": slug,
+              "version": version,
+              "download_url": download_url,
+              "checksum_sha256": archive.with_suffix(archive.suffix + ".sha256").read_text().split()[0],
+          }
+          pathlib.Path(output).write_text(
+              json.dumps(manifest, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          cp "$VERSION_DIR/manifest.json" "build/release/${PLUGIN_SLUG}/manifest.json"
+
+      - name: Upload versioned ZIP and checksum
+        uses: kindermaenner/ci-templates/.github/actions/ftp-upload@main
+        with:
+          source-path: build/release/${{ inputs.plugin-slug }}/versions/${{ github.ref_name }}/
+          target-path: ${{ inputs.ftp-target-path }}/versions/${{ github.ref_name }}
+          ftp-host: ${{ secrets.FTP_HOST }}
+          ftp-user: ${{ secrets.FTP_USER }}
+          ftp-password: ${{ secrets.FTP_PASSWORD }}
+          fail-on-error: "true"
+
+      - name: Publish current update manifest
+        uses: kindermaenner/ci-templates/.github/actions/ftp-upload@main
+        with:
+          source-path: build/release/${{ inputs.plugin-slug }}/manifest.json
+          target-path: ${{ inputs.ftp-target-path }}
+          ftp-host: ${{ secrets.FTP_HOST }}
+          ftp-user: ${{ secrets.FTP_USER }}
+          ftp-password: ${{ secrets.FTP_PASSWORD }}
+          fail-on-error: "true"

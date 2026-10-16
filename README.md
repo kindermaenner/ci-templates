@@ -35,6 +35,30 @@ jobs:
       BADGE_APP_PRIVATE_KEY: ${{ secrets.BADGE_APP_PRIVATE_KEY }}
 ```
 
+### WordPress Plugin Release
+The release workflow is called from a plugin repository's tag-triggered workflow after its CI checks pass. It requires a `vMAJOR.MINOR.PATCH` tag, installs production Composer dependencies, packages the plugin (including `vendor/`), and uploads the versioned ZIP, checksum, and stable update manifest to the configured FTP location. The manifest points to the versioned ZIP URL.
+
+```yaml
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    uses: kindermaenner/ci-templates/.github/workflows/wordpress-plugin-release.yml@main
+    with:
+      plugin-file: MyPlugin.php
+      plugin-slug: my-plugin
+      ftp-target-path: example.com/plugin-updates/my-plugin
+      public-url: https://example.com/plugin-updates/my-plugin
+    secrets:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USER: ${{ secrets.FTP_USER }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+```
+
+The FTP destination must map to the supplied public HTTPS URL. The updater implementation in the plugin must use that URL's `manifest.json`.
+
 ### 2. Android App Pipeline
 Runs Gradle Build, Lint, Kover coverage, optional instrumented tests, SonarQube scan via Gradle, optional FTP upload, and badge trigger.
 
