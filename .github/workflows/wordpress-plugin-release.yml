@@ -88,6 +88,11 @@ jobs:
             --exclude='.git/' \
             --exclude='.github/' \
             --exclude='.gitignore' \
+            --exclude='.gitattributes' \
+            --exclude='README.md' \
+            --exclude='readme.txt' \
+            --exclude='phpcs.xml' \
+            --exclude='bootstrap/' \
             --exclude='tests/' \
             --exclude='vendor/bin/' \
             --exclude='composer.json' \
