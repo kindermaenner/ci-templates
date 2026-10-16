@@ -36,7 +36,7 @@ jobs:
 ```
 
 ### WordPress Plugin Release
-The release workflow is called from a plugin repository's tag-triggered workflow after its CI checks pass. It requires a `vMAJOR.MINOR.PATCH` tag, installs production Composer dependencies, packages the plugin (including `vendor/`), and uploads the versioned ZIP, checksum, and stable update manifest to the configured FTP location. The manifest points to the versioned ZIP URL.
+The release workflow is called from a plugin repository's tag-triggered workflow after its CI checks pass. It requires a `vMAJOR.MINOR.PATCH` tag, installs production Composer dependencies, packages the plugin (including `vendor/`), and uploads the versioned ZIP, checksum, a replaceable ZIP in `latest/`, and a stable update manifest to the configured FTP location. The manifest points to the versioned ZIP URL.
 
 ```yaml
 on:

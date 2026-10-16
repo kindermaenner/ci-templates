@@ -171,6 +171,16 @@ jobs:
           ftp-password: ${{ secrets.FTP_PASSWORD }}
           fail-on-error: "true"
 
+      - name: Publish latest plugin ZIP
+        uses: kindermaenner/ci-templates/.github/actions/ftp-upload@main
+        with:
+          source-path: build/release/${{ inputs.plugin-slug }}/versions/${{ github.ref_name }}/${{ inputs.plugin-slug }}.zip
+          target-path: ${{ inputs.ftp-target-path }}/latest
+          ftp-host: ${{ secrets.FTP_HOST }}
+          ftp-user: ${{ secrets.FTP_USER }}
+          ftp-password: ${{ secrets.FTP_PASSWORD }}
+          fail-on-error: "true"
+
       - name: Publish current update manifest
         uses: kindermaenner/ci-templates/.github/actions/ftp-upload@main
         with:
