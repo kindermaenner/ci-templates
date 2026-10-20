@@ -50,6 +50,12 @@ on:
         type: string
         default: "app/build/outputs/**/*.apk"
 
+      ftp-exclude-pattern:
+        description: "Filename pattern for APKs to exclude from upload"
+        required: false
+        type: string
+        default: "*-androidTest.apk"
+
       ftp-target-path:
         description: "Target directory on the FTP server"
         required: false
@@ -195,6 +201,7 @@ jobs:
         uses: kindermaenner/ci-templates/.github/actions/ftp-upload@main
         with:
           source-path: ${{ inputs.ftp-source-path }}
+          exclude-pattern: ${{ inputs.ftp-exclude-pattern }}
           target-path: ${{ inputs.ftp-target-path }}
           ftp-host: ${{ secrets.FTP_HOST }}
           ftp-user: ${{ secrets.FTP_USER }}
