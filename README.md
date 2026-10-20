@@ -40,8 +40,8 @@ The release workflow is called from a plugin repository's tag-triggered workflow
 
 ```yaml
 on:
-  push:
-    tags: ["v*"]
+  release:
+    types: [published]
 
 jobs:
   release:
@@ -57,7 +57,7 @@ jobs:
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
 ```
 
-The FTP destination must map to the supplied public HTTPS URL. The updater implementation in the plugin must use that URL's `manifest.json`.
+The FTP destination must map to the supplied public HTTPS URL. A published GitHub Release matching the pushed tag must exist and contain release notes. The workflow copies those notes to `release_notes` and includes the notes and publication date for all published `vMAJOR.MINOR.PATCH` releases, including pre-releases such as `v3.9.0-beta.1`, in `releases` in `manifest.json`. The plugin updater can use `releases` to render a cumulative changelog in WordPress's update details (for example, in `sections.changelog`) and `release_notes` for the current version's `upgrade_notice`.
 
 ### 2. Android App Pipeline
 Runs Gradle Build, Lint, Kover coverage, optional instrumented tests, SonarQube scan via Gradle, optional FTP upload, and badge trigger.

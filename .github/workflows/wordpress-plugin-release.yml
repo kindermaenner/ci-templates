@@ -66,6 +66,41 @@ jobs:
             exit 1
           fi
 
+      - name: Read GitHub Release notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          python3 - "$RUNNER_TEMP/releases.json" "$GITHUB_REF_NAME" "$RUNNER_TEMP/release-notes.md" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          releases_path, current_tag, notes_path = sys.argv[1:]
+          pages = json.loads(pathlib.Path(releases_path).read_text(encoding="utf-8"))
+          releases = [release for page in pages for release in page]
+          current_release = next(
+              (
+                  release
+                  for release in releases
+                  if release["tag_name"] == current_tag and not release["draft"] and not release["prerelease"]
+              ),
+              None,
+          )
+          if current_release is None:
+              raise SystemExit(f"No published GitHub Release exists for tag {current_tag}.")
+          notes = (current_release.get("body") or "").strip()
+          if not notes:
+              raise SystemExit(f"GitHub Release '{current_tag}' has no release notes.")
+          pathlib.Path(notes_path).write_text(notes, encoding="utf-8")
+          PY
+          if [ ! -s "$RUNNER_TEMP/release-notes.md" ]; then
+            echo "::error::Could not read release notes for '$GITHUB_REF_NAME'."
+            exit 1
+          fi
+
       - name: Install production dependencies
         run: composer install --no-dev --no-interaction --no-progress --prefer-dist --classmap-authoritative
 
@@ -141,17 +176,36 @@ jobs:
           mv "$RUNNER_TEMP/${PLUGIN_SLUG}-${VERSION}.zip" "$VERSION_DIR/$ZIP_NAME"
           sha256sum "$VERSION_DIR/$ZIP_NAME" > "$VERSION_DIR/$ZIP_NAME.sha256"
 
-          python3 - "$PLUGIN_SLUG" "$VERSION" "$DOWNLOAD_URL" "$VERSION_DIR/manifest.json" <<'PY'
+          python3 - "$PLUGIN_SLUG" "$VERSION" "$DOWNLOAD_URL" "$VERSION_DIR/manifest.json" "$RUNNER_TEMP/release-notes.md" "$RUNNER_TEMP/releases.json" <<'PY'
           import json
           import pathlib
+          import re
           import sys
 
-          slug, version, download_url, output = sys.argv[1:]
+          slug, version, download_url, output, release_notes_path, releases_path = sys.argv[1:]
           archive = pathlib.Path(output).parent / f"{slug}.zip"
+          release_notes = pathlib.Path(release_notes_path).read_text(encoding="utf-8").strip()
+          releases = [
+              {
+                  "version": release["tag_name"][1:],
+                  "released_at": release["published_at"],
+                  "notes": (release.get("body") or "").strip(),
+              }
+              for page in json.loads(pathlib.Path(releases_path).read_text(encoding="utf-8"))
+              for release in page
+              if re.fullmatch(
+                  r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?",
+                  release["tag_name"],
+              )
+              and not release["draft"]
+          ]
+          releases.sort(key=lambda release: release["released_at"] or "", reverse=True)
           manifest = {
               "slug": slug,
               "version": version,
               "download_url": download_url,
+              "release_notes": release_notes,
+              "releases": releases,
               "checksum_sha256": archive.with_suffix(archive.suffix + ".sha256").read_text().split()[0],
           }
           pathlib.Path(output).write_text(
