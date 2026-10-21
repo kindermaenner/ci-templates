@@ -20,7 +20,7 @@ on:
         required: true
         type: string
       php-version:
-        description: "PHP version used to install production Composer dependencies"
+        description: "PHP version used for production dependencies and reported as CI-tested; keep it aligned with the calling CI workflow"
         required: false
         type: string
         default: "8.4"
@@ -110,6 +110,7 @@ jobs:
           PLUGIN_FILE: ${{ inputs.plugin-file }}
           PLUGIN_SLUG: ${{ inputs.plugin-slug }}
           PUBLIC_URL: ${{ inputs.public-url }}
+          TESTED_PHP_VERSION: ${{ inputs.php-version }}
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
@@ -176,21 +177,28 @@ jobs:
           mv "$RUNNER_TEMP/${PLUGIN_SLUG}-${VERSION}.zip" "$VERSION_DIR/$ZIP_NAME"
           sha256sum "$VERSION_DIR/$ZIP_NAME" > "$VERSION_DIR/$ZIP_NAME.sha256"
 
-          python3 - "$PLUGIN_SLUG" "$VERSION" "$DOWNLOAD_URL" "$VERSION_DIR/manifest.json" "$RUNNER_TEMP/release-notes.md" "$RUNNER_TEMP/releases.json" <<'PY'
+          python3 - "$PLUGIN_SLUG" "$VERSION" "$DOWNLOAD_URL" "$VERSION_DIR/manifest.json" "$RUNNER_TEMP/release-notes.md" "$RUNNER_TEMP/releases.json" "$STAGING_DIR/$PLUGIN_FILE" "$GITHUB_REPOSITORY" "$TESTED_PHP_VERSION" "$GITHUB_REF_NAME" <<'PY'
           import json
           import pathlib
           import re
           import sys
 
-          slug, version, download_url, output, release_notes_path, releases_path = sys.argv[1:]
+          (
+              slug,
+              version,
+              download_url,
+              output,
+              release_notes_path,
+              releases_path,
+              plugin_file,
+              repository,
+              tested_php_version,
+              current_tag,
+          ) = sys.argv[1:]
           archive = pathlib.Path(output).parent / f"{slug}.zip"
           release_notes = pathlib.Path(release_notes_path).read_text(encoding="utf-8").strip()
-          releases = [
-              {
-                  "version": release["tag_name"][1:],
-                  "released_at": release["published_at"],
-                  "notes": (release.get("body") or "").strip(),
-              }
+          all_releases = [
+              release
               for page in json.loads(pathlib.Path(releases_path).read_text(encoding="utf-8"))
               for release in page
               if re.fullmatch(
@@ -199,12 +207,56 @@ jobs:
               )
               and not release["draft"]
           ]
-          releases.sort(key=lambda release: release["released_at"] or "", reverse=True)
+          all_releases.sort(key=lambda release: release["published_at"] or "", reverse=True)
+
+          def has_security_heading(notes):
+              return re.search(
+                  r"(?im)^[ \t]{0,3}(?:#{1,6}[ \t]+)?(?:[-*][ \t]+)?\*{0,2}security\*{0,2}(?:[ \t]+(?:fixes|improvements))?[ \t]*(?::.*)?$",
+                  notes or "",
+              ) is not None
+
+          releases = []
+          for index, release in enumerate(all_releases):
+              older_tag = all_releases[index + 1]["tag_name"] if index + 1 < len(all_releases) else None
+              releases.append({
+                  "version": release["tag_name"][1:],
+                  "released_at": release["published_at"],
+                  "notes": (release.get("body") or "").strip(),
+                  "url": release["html_url"],
+                  "prerelease": release["prerelease"],
+                  "security_fixes": has_security_heading(release.get("body")),
+                  "compare_url": (
+                      f"https://github.com/{repository}/compare/{older_tag}...{release['tag_name']}"
+                      if older_tag
+                      else None
+                  ),
+              })
+
+          current_release = next(
+              release for release in all_releases if release["tag_name"] == current_tag
+          )
+          plugin_source = pathlib.Path(plugin_file).read_text(encoding="utf-8")
+
+          def plugin_header(field):
+              match = re.search(
+                  rf"(?mi)^[ \t]*\*[ \t]*{re.escape(field)}:[ \t]*(.+?)[ \t]*$",
+                  plugin_source,
+              )
+              return match.group(1) if match else ""
+
           manifest = {
               "slug": slug,
+              "name": plugin_header("Plugin Name") or slug,
               "version": version,
               "download_url": download_url,
               "release_notes": release_notes,
+              "release_url": current_release["html_url"],
+              "released_at": current_release["published_at"],
+              "prerelease": current_release["prerelease"],
+              "security_fixes": has_security_heading(current_release.get("body")),
+              "homepage": f"https://github.com/{repository}",
+              "requires_php": plugin_header("Requires PHP"),
+              "tested_php": tested_php_version,
               "releases": releases,
               "checksum_sha256": archive.with_suffix(archive.suffix + ".sha256").read_text().split()[0],
           }
