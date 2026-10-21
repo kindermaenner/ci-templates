@@ -85,7 +85,7 @@ jobs:
               (
                   release
                   for release in releases
-                  if release["tag_name"] == current_tag and not release["draft"] and not release["prerelease"]
+                  if release["tag_name"] == current_tag and not release["draft"]
               ),
               None,
           )
