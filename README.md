@@ -107,7 +107,7 @@ Executes SonarScanner CLI 8.0.1 directly on the runner without uploading/downloa
 ```
 
 ### SonarQube Gradle Scan (`.github/actions/sonar-gradle`)
-Executes Gradle Sonar task directly on the runner.
+Sets up Java 21 and executes the Gradle Sonar task directly on the runner when SonarQube credentials are provided.
 
 ```yaml
 - name: Run SonarQube Gradle Scan

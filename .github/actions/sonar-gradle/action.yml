@@ -18,6 +18,13 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Set up Java 21
+      if: ${{ inputs.sonar-token != '' && inputs.sonar-host-url != '' }}
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: 21
+
     - name: Run SonarQube Scan via Gradle
       shell: bash
       env:
