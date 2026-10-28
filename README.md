@@ -95,7 +95,7 @@ jobs:
 For custom pipelines, you can include individual composite actions directly as steps within your job:
 
 ### SonarQube CLI Scan (`.github/actions/sonar-cli`)
-Executes the SonarQube CLI scanner directly on the runner without uploading/downloading coverage artifacts. The action sets up Java 21 when SonarQube credentials are provided.
+Executes SonarScanner CLI 8.0.1 directly on the runner without uploading/downloading coverage artifacts. The default Linux x64 package includes its own Java 21 runtime. You can override the scanner version with the `scanner-version` input.
 
 ```yaml
 - name: Run SonarQube Scan

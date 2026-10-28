@@ -17,7 +17,7 @@ inputs:
   scanner-version:
     description: "SonarScanner CLI version to use"
     required: false
-    default: "5.0.1.3006"
+    default: "8.0.1.6346"
 
 runs:
   using: "composite"
@@ -34,13 +34,6 @@ runs:
         path: ~/.sonar/cache
         key: sonar-cache-${{ runner.os }}
 
-    - name: Set up Java 21
-      if: ${{ inputs.sonar-token != '' && inputs.sonar-host-url != '' }}
-      uses: actions/setup-java@v5
-      with:
-        distribution: temurin
-        java-version: 21
-
     - name: Install SonarScanner CLI
       shell: bash
       run: |
@@ -50,11 +43,11 @@ runs:
         fi
         if [ ! -f "/opt/sonar-scanner/bin/sonar-scanner" ]; then
           echo "Downloading SonarScanner CLI ${{ inputs.scanner-version }}..."
-          wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${{ inputs.scanner-version }}-linux.zip
-          unzip -q sonar-scanner-cli-${{ inputs.scanner-version }}-linux.zip
+          wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${{ inputs.scanner-version }}-linux-x64.zip
+          unzip -q sonar-scanner-cli-${{ inputs.scanner-version }}-linux-x64.zip
           sudo rm -rf /opt/sonar-scanner
-          sudo mv sonar-scanner-${{ inputs.scanner-version }}-linux /opt/sonar-scanner
-          rm -f sonar-scanner-cli-${{ inputs.scanner-version }}-linux.zip
+          sudo mv sonar-scanner-${{ inputs.scanner-version }}-linux-x64 /opt/sonar-scanner
+          rm -f sonar-scanner-cli-${{ inputs.scanner-version }}-linux-x64.zip
         fi
         echo "/opt/sonar-scanner/bin" >> $GITHUB_PATH
 
