@@ -23,16 +23,23 @@ runs:
   using: "composite"
   steps:
     - name: Cache SonarQube scanner
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: /opt/sonar-scanner
         key: sonar-scanner-${{ runner.os }}-${{ inputs.scanner-version }}
 
     - name: Cache SonarQube plugins
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.sonar/cache
         key: sonar-cache-${{ runner.os }}
+
+    - name: Set up Java 21
+      if: ${{ inputs.sonar-token != '' && inputs.sonar-host-url != '' }}
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: 21
 
     - name: Install SonarScanner CLI
       shell: bash

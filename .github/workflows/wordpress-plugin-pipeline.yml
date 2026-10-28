@@ -70,24 +70,24 @@ on:
 jobs:
   ci:
     name: WordPress Plugin CI
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Checkout ci-templates (for PHPCS standards)
         if: ${{ inputs.run-lint }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: kindermaenner/ci-templates
           ref: ${{ inputs.templates-ref }}
           path: ci-templates
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: vendor
           key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}

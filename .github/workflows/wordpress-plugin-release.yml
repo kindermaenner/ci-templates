@@ -40,11 +40,11 @@ jobs:
   release:
     name: Build and publish plugin release
     if: ${{ github.ref_type == 'tag' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check out plugin
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
