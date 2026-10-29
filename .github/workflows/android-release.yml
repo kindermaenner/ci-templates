@@ -133,12 +133,28 @@ jobs:
           echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/${{ inputs.keystore-file }}"
           chmod 600 "$RUNNER_TEMP/${{ inputs.keystore-file }}"
 
+      - name: Resolve Key Alias
+        id: keystore
+        shell: bash
+        run: |
+          KEY_ALIAS="${{ secrets.RELEASE_KEY_ALIAS }}"
+          if [ -z "$KEY_ALIAS" ]; then
+            DETECTED_ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/${{ inputs.keystore-file }}" -storepass "${{ secrets.RELEASE_KEYSTORE_PASSWORD }}" | grep "PrivateKeyEntry" | head -n 1 | cut -d',' -f1 | xargs || true)
+            if [ -n "$DETECTED_ALIAS" ]; then
+              KEY_ALIAS="$DETECTED_ALIAS"
+            else
+              KEY_ALIAS="${{ inputs.app-slug }}"
+            fi
+          fi
+          echo "key_alias=$KEY_ALIAS" >> $GITHUB_OUTPUT
+          echo "Resolved Signing Key Alias: $KEY_ALIAS"
+
       - name: Build Release APK
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=true"
           RELEASE_KEYSTORE: ${{ runner.temp }}/${{ inputs.keystore-file }}
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS || 'release' }}
+          RELEASE_KEY_ALIAS: ${{ steps.keystore.outputs.key_alias }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease \
