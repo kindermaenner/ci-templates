@@ -88,6 +88,8 @@ jobs:
       BADGE_APP_PRIVATE_KEY: ${{ secrets.BADGE_APP_PRIVATE_KEY }}
 ```
 
+For Android releases, the signing key alias is detected from the keystore unless `key-alias` or the `RELEASE_KEY_ALIAS` secret is set. Any explicitly configured alias is validated as a private-key entry before Gradle builds the APK.
+
 ---
 
 ## Composite Actions (`.github/actions/`)

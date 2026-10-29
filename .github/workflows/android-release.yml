@@ -147,20 +147,44 @@ jobs:
           SECRET_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           STOREPASS: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           KEYSTORE_PATH: ${{ runner.temp }}/${{ inputs.keystore-file }}
-          APP_SLUG: ${{ inputs.app-slug }}
         run: |
           KEY_ALIAS="${INPUT_KEY_ALIAS:-$SECRET_KEY_ALIAS}"
-          if [ -z "$KEY_ALIAS" ]; then
-            echo "Attempting to auto-detect alias via keytool..."
-            DETECTED_ALIAS=$(keytool -list -keystore "$KEYSTORE_PATH" -storepass:env STOREPASS 2>/dev/null | grep -i -E "PrivateKeyEntry|Schlüsseleintrag|entry" | head -n 1 | cut -d',' -f1 | xargs || true)
-            if [ -n "$DETECTED_ALIAS" ]; then
-              echo "Auto-detected alias: $DETECTED_ALIAS"
-              KEY_ALIAS="$DETECTED_ALIAS"
-            else
-              echo "Auto-detection failed, falling back to app-slug: $APP_SLUG"
-              KEY_ALIAS="$APP_SLUG"
+          KEYTOOL_LOCALE=(-J-Duser.language=en -J-Duser.country=US)
+
+          if [ -n "$KEY_ALIAS" ]; then
+            if ! KEY_ENTRY=$(keytool -list -v \
+              -keystore "$KEYSTORE_PATH" \
+              -storepass:env STOREPASS \
+              -alias "$KEY_ALIAS" \
+              "${KEYTOOL_LOCALE[@]}" 2>/dev/null); then
+              echo "::error::Signing key alias '$KEY_ALIAS' was not found in the release keystore."
+              exit 1
             fi
+            if ! printf '%s\n' "$KEY_ENTRY" | grep -Fqx "Entry type: PrivateKeyEntry"; then
+              echo "::error::Signing key alias '$KEY_ALIAS' is not a private key entry."
+              exit 1
+            fi
+          else
+            echo "Attempting to auto-detect a private key alias via keytool..."
+            if ! KEYSTORE_ENTRIES=$(keytool -list -v \
+              -keystore "$KEYSTORE_PATH" \
+              -storepass:env STOREPASS \
+              "${KEYTOOL_LOCALE[@]}" 2>/dev/null); then
+              echo "::error::Could not read the release keystore."
+              exit 1
+            fi
+
+            KEY_ALIAS=$(printf '%s\n' "$KEYSTORE_ENTRIES" | awk '
+              /^Alias name: / { alias = substr($0, index($0, ": ") + 2) }
+              /^Entry type: PrivateKeyEntry$/ { print alias; exit }
+            ')
+            if [ -z "$KEY_ALIAS" ]; then
+              echo "::error::No private key entry was found in the release keystore."
+              exit 1
+            fi
+            echo "Auto-detected private key alias: $KEY_ALIAS"
           fi
+
           echo "key_alias=$KEY_ALIAS" >> $GITHUB_OUTPUT
           echo "Resolved Signing Key Alias: $KEY_ALIAS"
 
