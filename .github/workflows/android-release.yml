@@ -43,6 +43,12 @@ on:
         type: string
         default: ""
 
+      key-alias:
+        description: "Alias of the signing key (optional, auto-detected if not specified)"
+        required: false
+        type: string
+        default: ""
+
     secrets:
       RELEASE_KEYSTORE_BASE64:
         required: true
@@ -136,14 +142,23 @@ jobs:
       - name: Resolve Key Alias
         id: keystore
         shell: bash
+        env:
+          INPUT_KEY_ALIAS: ${{ inputs.key-alias }}
+          SECRET_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          STOREPASS: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          KEYSTORE_PATH: ${{ runner.temp }}/${{ inputs.keystore-file }}
+          APP_SLUG: ${{ inputs.app-slug }}
         run: |
-          KEY_ALIAS="${{ secrets.RELEASE_KEY_ALIAS }}"
+          KEY_ALIAS="${INPUT_KEY_ALIAS:-$SECRET_KEY_ALIAS}"
           if [ -z "$KEY_ALIAS" ]; then
-            DETECTED_ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/${{ inputs.keystore-file }}" -storepass "${{ secrets.RELEASE_KEYSTORE_PASSWORD }}" | grep "PrivateKeyEntry" | head -n 1 | cut -d',' -f1 | xargs || true)
+            echo "Attempting to auto-detect alias via keytool..."
+            DETECTED_ALIAS=$(keytool -list -keystore "$KEYSTORE_PATH" -storepass:env STOREPASS 2>/dev/null | grep -i -E "PrivateKeyEntry|Schlüsseleintrag|entry" | head -n 1 | cut -d',' -f1 | xargs || true)
             if [ -n "$DETECTED_ALIAS" ]; then
+              echo "Auto-detected alias: $DETECTED_ALIAS"
               KEY_ALIAS="$DETECTED_ALIAS"
             else
-              KEY_ALIAS="${{ inputs.app-slug }}"
+              echo "Auto-detection failed, falling back to app-slug: $APP_SLUG"
+              KEY_ALIAS="$APP_SLUG"
             fi
           fi
           echo "key_alias=$KEY_ALIAS" >> $GITHUB_OUTPUT
