@@ -25,6 +25,22 @@ runs:
         distribution: temurin
         java-version: 21
 
+    - name: Check SonarQube connectivity
+      if: ${{ inputs.sonar-token != '' && inputs.sonar-host-url != '' }}
+      shell: bash
+      env:
+        SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
+      run: |
+        url="${SONAR_HOST_URL%/}/api/v2/analysis/version"
+        if result=$(curl --silent --show-error --output /dev/null \
+          --write-out 'HTTP %{http_code}; connect %{time_connect}s; total %{time_total}s' \
+          --connect-timeout 10 --max-time 20 "$url"); then
+          echo "SonarQube connectivity check: $result"
+        else
+          curl_status=$?
+          echo "::warning::SonarQube connectivity check failed (curl exit code ${curl_status})."
+        fi
+
     - name: Run SonarQube Scan via Gradle
       shell: bash
       env:
