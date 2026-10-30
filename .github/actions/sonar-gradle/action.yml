@@ -30,11 +30,12 @@ runs:
       shell: bash
       env:
         SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
+        SONAR_TOKEN: ${{ inputs.sonar-token }}
       run: |
         url="${SONAR_HOST_URL%/}/api/v2/analysis/version"
         if result=$(curl --silent --show-error --output /dev/null \
           --write-out 'HTTP %{http_code}; connect %{time_connect}s; total %{time_total}s' \
-          --connect-timeout 10 --max-time 20 "$url"); then
+          --connect-timeout 10 --max-time 20 --user "${SONAR_TOKEN}:" "$url"); then
           echo "SonarQube connectivity check: $result"
         else
           curl_status=$?
@@ -52,4 +53,4 @@ runs:
           exit 0
         fi
         chmod +x gradlew
-        ./gradlew sonar ${{ inputs.gradle-args }} -Dsonar.scanner.skipJreProvisioning=true
+        ./gradlew sonar ${{ inputs.gradle-args }} -Dsonar.scanner.skipJreProvisioning=true -Dsonar.scanner.socketTimeout=300

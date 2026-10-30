@@ -43,6 +43,12 @@ on:
         type: string
         default: ""
 
+      release-tag:
+        description: "Existing version tag to release manually (e.g. v1.2.3)"
+        required: false
+        type: string
+        default: ""
+
       key-alias:
         description: "Alias of the signing key (optional, auto-detected if not specified)"
         required: false
@@ -69,28 +75,37 @@ permissions:
 jobs:
   release:
     name: Build, sign and publish Android release
-    if: ${{ github.ref_type == 'tag' }}
+    if: ${{ github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.release-tag != '') }}
     runs-on: ubuntu-24.04
 
     steps:
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release-tag }}
+        run: |
+          RELEASE_TAG="${INPUT_RELEASE_TAG:-$GITHUB_REF_NAME}"
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+(\.[0-9]+)*(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Release tags must start with 'v' followed by version digits (e.g. v1.0.0)."
+            exit 1
+          fi
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
       - name: Check out repository
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-
-      - name: Validate release tag
-        shell: bash
-        run: |
-          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+(\.[0-9]+)*(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Release tags must start with 'v' followed by version digits (e.g. v1.0.0)."
-            exit 1
-          fi
+          ref: refs/tags/${{ steps.tag.outputs.tag }}
 
       - name: Extract version details
         id: version
         shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
           # Berechne numerischen versionCode aus SemVer
@@ -205,6 +220,7 @@ jobs:
         shell: bash
         env:
           APP_SLUG: ${{ inputs.app-slug }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
           mkdir -p build/dist
           APK_FILE=$(find app/build/outputs/apk/release -name "*.apk" ! -name "*-androidTest.apk" | head -n 1)
@@ -214,25 +230,26 @@ jobs:
           fi
           echo "Found APK: $APK_FILE"
           cp "$APK_FILE" "build/dist/${APP_SLUG}.apk"
-          cp "$APK_FILE" "build/dist/${APP_SLUG}-${GITHUB_REF_NAME}.apk"
+          cp "$APK_FILE" "build/dist/${APP_SLUG}-${RELEASE_TAG}.apk"
 
           cd build/dist
           sha256sum "${APP_SLUG}.apk" > "${APP_SLUG}.apk.sha256"
-          sha256sum "${APP_SLUG}-${GITHUB_REF_NAME}.apk" > "${APP_SLUG}-${GITHUB_REF_NAME}.apk.sha256"
+          sha256sum "${APP_SLUG}-${RELEASE_TAG}.apk" > "${APP_SLUG}-${RELEASE_TAG}.apk.sha256"
           ls -la
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           PREFIX: ${{ inputs.release-title-prefix || inputs.app-slug }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
-          TITLE="$PREFIX $GITHUB_REF_NAME"
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "Uploading artifacts to existing release $GITHUB_REF_NAME"
-            gh release upload "$GITHUB_REF_NAME" build/dist/* --clobber
+          TITLE="$PREFIX $RELEASE_TAG"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Uploading artifacts to existing release $RELEASE_TAG"
+            gh release upload "$RELEASE_TAG" build/dist/* --clobber
           else
-            echo "Creating new release $GITHUB_REF_NAME"
-            gh release create "$GITHUB_REF_NAME" \
+            echo "Creating new release $RELEASE_TAG"
+            gh release create "$RELEASE_TAG" \
               --title "$TITLE" \
               --generate-notes \
               build/dist/*
@@ -252,8 +269,8 @@ jobs:
         if: ${{ inputs.run-ftp-upload && inputs.ftp-target-path != '' }}
         uses: kindermaenner/ci-templates/.github/actions/ftp-upload@main
         with:
-          source-path: build/dist/${{ inputs.app-slug }}-${{ github.ref_name }}.apk
-          target-path: ${{ inputs.ftp-target-path }}/versions/${{ github.ref_name }}
+          source-path: build/dist/${{ inputs.app-slug }}-${{ steps.version.outputs.tag }}.apk
+          target-path: ${{ inputs.ftp-target-path }}/versions/${{ steps.version.outputs.tag }}
           ftp-host: ${{ secrets.FTP_HOST }}
           ftp-user: ${{ secrets.FTP_USER }}
           ftp-password: ${{ secrets.FTP_PASSWORD }}
