@@ -36,4 +36,4 @@ runs:
           exit 0
         fi
         chmod +x gradlew
-        ./gradlew sonar ${{ inputs.gradle-args }}
+        ./gradlew sonar ${{ inputs.gradle-args }} -Dsonar.scanner.skipJreProvisioning=true
