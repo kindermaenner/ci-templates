@@ -188,14 +188,6 @@ jobs:
           disable-animations: true
           script: ./gradlew connectedDebugAndroidTestCoverageReport --stacktrace
 
-      - name: Run SonarQube Scan via Gradle
-        if: ${{ inputs.run-sonar }}
-        uses: kindermaenner/ci-templates/.github/actions/sonar-gradle@main
-        with:
-          sonar-token: ${{ secrets.SONAR_TOKEN }}
-          sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
-          gradle-args: ${{ inputs.gradle-sonar-args }}
-
       - name: Perform FTP Upload
         if: ${{ inputs.run-ftp-upload }}
         uses: kindermaenner/ci-templates/.github/actions/ftp-upload@main
@@ -206,6 +198,14 @@ jobs:
           ftp-host: ${{ secrets.FTP_HOST }}
           ftp-user: ${{ secrets.FTP_USER }}
           ftp-password: ${{ secrets.FTP_PASSWORD }}
+
+      - name: Run SonarQube Scan via Gradle
+        if: ${{ inputs.run-sonar }}
+        uses: kindermaenner/ci-templates/.github/actions/sonar-gradle@main
+        with:
+          sonar-token: ${{ secrets.SONAR_TOKEN }}
+          sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
+          gradle-args: ${{ inputs.gradle-sonar-args }}
 
       - name: Trigger Sonar Badge Generation
         if: ${{ inputs.trigger-badges }}
