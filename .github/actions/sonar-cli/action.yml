@@ -62,13 +62,24 @@ runs:
         SONAR_TOKEN: ${{ inputs.sonar-token }}
         SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
         SONAR_PROJECT_VERSION: ${{ steps.project-version.outputs.project-version }}
+        SONAR_PROPERTIES: ${{ inputs.sonar-properties }}
       run: |
         if [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_HOST_URL" ]; then
           echo "Warning: SONAR_TOKEN or SONAR_HOST_URL is not set. Skipping SonarQube CLI Scan."
           exit 0
         fi
+        sonar_properties=()
+        while IFS= read -r line; do
+          if [ -n "$line" ]; then
+            read -r -a line_properties <<< "$line"
+            sonar_properties+=("${line_properties[@]}")
+          fi
+        done <<< "$SONAR_PROPERTIES"
         if [ -n "$SONAR_PROJECT_VERSION" ]; then
-          /opt/sonar-scanner/bin/sonar-scanner ${{ inputs.sonar-properties }} "-Dsonar.projectVersion=$SONAR_PROJECT_VERSION"
+          sonar_properties+=("-Dsonar.projectVersion=$SONAR_PROJECT_VERSION")
+        fi
+        if [ "${#sonar_properties[@]}" -gt 0 ]; then
+          /opt/sonar-scanner/bin/sonar-scanner "${sonar_properties[@]}"
         else
-          /opt/sonar-scanner/bin/sonar-scanner ${{ inputs.sonar-properties }}
+          /opt/sonar-scanner/bin/sonar-scanner
         fi
