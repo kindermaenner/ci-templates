@@ -25,6 +25,12 @@ on:
         type: boolean
         default: true
 
+      run-sonar:
+        description: "Whether to run SonarQube analysis for the release"
+        required: false
+        type: boolean
+        default: true
+
       run-ftp-upload:
         description: "Whether to upload built APKs to FTP"
         required: false
@@ -67,6 +73,10 @@ on:
       FTP_USER:
         required: false
       FTP_PASSWORD:
+        required: false
+      SONAR_TOKEN:
+        required: false
+      SONAR_HOST_URL:
         required: false
 
 permissions:
@@ -215,6 +225,13 @@ jobs:
             -PversionName=${{ steps.version.outputs.version }} \
             -PversionCode=${{ steps.version.outputs.version_code }} \
             --stacktrace
+
+      - name: Run SonarQube Scan
+        if: ${{ inputs.run-sonar }}
+        uses: kindermaenner/ci-templates/.github/actions/sonar-gradle@main
+        with:
+          sonar-token: ${{ secrets.SONAR_TOKEN }}
+          sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Prepare Release Artifacts
         shell: bash

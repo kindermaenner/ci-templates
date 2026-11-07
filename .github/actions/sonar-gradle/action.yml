@@ -42,15 +42,25 @@ runs:
           echo "::warning::SonarQube connectivity check failed (curl exit code ${curl_status})."
         fi
 
+    - name: Resolve SonarQube project version
+      id: project-version
+      if: ${{ inputs.sonar-token != '' && inputs.sonar-host-url != '' }}
+      uses: kindermaenner/ci-templates/.github/actions/sonar-project-version@main
+
     - name: Run SonarQube Scan via Gradle
       shell: bash
       env:
         SONAR_TOKEN: ${{ inputs.sonar-token }}
         SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
+        SONAR_PROJECT_VERSION: ${{ steps.project-version.outputs.project-version }}
       run: |
         if [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_HOST_URL" ]; then
           echo "Warning: SONAR_TOKEN or SONAR_HOST_URL is not set. Skipping SonarQube Gradle Scan."
           exit 0
         fi
         chmod +x gradlew
-        ./gradlew sonar ${{ inputs.gradle-args }} -Dsonar.scanner.skipJreProvisioning=true -Dsonar.scanner.socketTimeout=300
+        sonar_version_arg=()
+        if [ -n "$SONAR_PROJECT_VERSION" ]; then
+          sonar_version_arg+=("-Dsonar.projectVersion=$SONAR_PROJECT_VERSION")
+        fi
+        ./gradlew sonar ${{ inputs.gradle-args }} -Dsonar.scanner.skipJreProvisioning=true -Dsonar.scanner.socketTimeout=300 "${sonar_version_arg[@]}"

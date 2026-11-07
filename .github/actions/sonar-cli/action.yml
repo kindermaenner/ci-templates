@@ -34,6 +34,11 @@ runs:
         path: ~/.sonar/cache
         key: sonar-cache-${{ runner.os }}
 
+    - name: Resolve SonarQube project version
+      id: project-version
+      if: ${{ inputs.sonar-token != '' && inputs.sonar-host-url != '' }}
+      uses: kindermaenner/ci-templates/.github/actions/sonar-project-version@main
+
     - name: Install SonarScanner CLI
       shell: bash
       run: |
@@ -56,9 +61,14 @@ runs:
       env:
         SONAR_TOKEN: ${{ inputs.sonar-token }}
         SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
+        SONAR_PROJECT_VERSION: ${{ steps.project-version.outputs.project-version }}
       run: |
         if [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_HOST_URL" ]; then
           echo "Warning: SONAR_TOKEN or SONAR_HOST_URL is not set. Skipping SonarQube CLI Scan."
           exit 0
         fi
-        /opt/sonar-scanner/bin/sonar-scanner ${{ inputs.sonar-properties }}
+        if [ -n "$SONAR_PROJECT_VERSION" ]; then
+          /opt/sonar-scanner/bin/sonar-scanner ${{ inputs.sonar-properties }} "-Dsonar.projectVersion=$SONAR_PROJECT_VERSION"
+        else
+          /opt/sonar-scanner/bin/sonar-scanner ${{ inputs.sonar-properties }}
+        fi

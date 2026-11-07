@@ -1,0 +1,43 @@
+name: "Resolve SonarQube Project Version"
+description: "Resolves the current vX.Y.Z release version for SonarQube"
+
+outputs:
+  project-version:
+    description: "Release version without the leading v, or empty when no release tag exists"
+    value: ${{ steps.resolve.outputs.project-version }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Resolve release version
+      id: resolve
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+          tag="$GITHUB_REF_NAME"
+        else
+          tag=""
+          while IFS= read -r candidate; do
+            if [[ "$candidate" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              tag="$candidate"
+              break
+            fi
+          done < <(git tag --merged HEAD --sort=-version:refname)
+        fi
+
+        if [[ -z "$tag" ]]; then
+          echo "::warning::No reachable vX.Y.Z release tag found; SonarQube will use its default project version."
+          echo "project-version=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::Release tags must use the vX.Y.Z format (for example v1.2.3); found '$tag'."
+          exit 1
+        fi
+
+        version="${tag#v}"
+        echo "project-version=$version" >> "$GITHUB_OUTPUT"
+        echo "Using SonarQube project version $version (from tag $tag)."

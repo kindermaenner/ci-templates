@@ -88,7 +88,12 @@ jobs:
       BADGE_APP_PRIVATE_KEY: ${{ secrets.BADGE_APP_PRIVATE_KEY }}
 ```
 
-For Android releases, the signing key alias is detected from the keystore unless `key-alias` or the `RELEASE_KEY_ALIAS` secret is set. Any explicitly configured alias is validated as a private-key entry before Gradle builds the APK.
+For Android releases, the signing key alias is detected from the keystore unless `key-alias` or the `RELEASE_KEY_ALIAS` secret is set. Any explicitly configured alias is validated as a private-key entry before Gradle builds the APK. The release workflow runs SonarQube analysis by default when `SONAR_TOKEN` and `SONAR_HOST_URL` are available; set `run-sonar: false` to disable it.
+
+### SonarQube project version
+Both SonarQube scan actions set `sonar.projectVersion` from Git tags, independent of the project's programming language or build system. A `vX.Y.Z` tag is passed as `X.Y.Z`; on branch and commit analyses, the latest reachable `vX.Y.Z` tag is used. Workflows using these actions should fetch tags and history (`actions/checkout` with `fetch-depth: 0`). If no release tag is reachable, the action logs a warning and leaves the version unset.
+
+To record a release version immediately, run SonarQube analysis in the tag-triggered release pipeline as well as in commit pipelines.
 
 ---
 
