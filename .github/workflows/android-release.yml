@@ -271,8 +271,9 @@ jobs:
         if: ${{ inputs.run-ftp-upload && inputs.ftp-target-path != '' }}
         uses: kindermaenner/ci-templates/.github/actions/ftp-upload@main
         with:
-          source-path: build/dist/${{ inputs.app-slug }}.apk
+          source-path: build/dist/${{ inputs.app-slug }}-${{ steps.version.outputs.tag }}.apk
           target-path: ${{ inputs.ftp-target-path }}/latest
+          target-filename: ${{ inputs.app-slug }}.apk
           ftp-host: ${{ secrets.FTP_HOST }}
           ftp-user: ${{ secrets.FTP_USER }}
           ftp-password: ${{ secrets.FTP_PASSWORD }}

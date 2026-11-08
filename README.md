@@ -131,8 +131,10 @@ Uploads build outputs (e.g., APKs or zip packages) directly via `curl --ftp-ssl`
 - name: Upload APKs to FTP
   uses: kindermaenner/ci-templates/.github/actions/ftp-upload@main
   with:
-    source-path: "app/build/outputs/apk/release"
+    source-path: "app/build/outputs/apk/release/my-app-release.apk"
     target-path: "apps/my-app"
+    # Optional: rename a single uploaded file at the destination.
+    target-filename: "my-app.apk"
     ftp-host: ${{ secrets.FTP_HOST }}
     ftp-user: ${{ secrets.FTP_USER }}
     ftp-password: ${{ secrets.FTP_PASSWORD }}

@@ -12,6 +12,10 @@ inputs:
   target-path:
     description: "Target directory on the FTP server"
     required: true
+  target-filename:
+    description: "Optional destination filename for a single uploaded file"
+    required: false
+    default: ""
   ftp-host:
     description: "FTP Server Host"
     required: false
@@ -41,6 +45,7 @@ runs:
         SOURCE_PATH: ${{ inputs.source-path }}
         EXCLUDE_PATTERN: ${{ inputs.exclude-pattern }}
         TARGET_PATH: ${{ inputs.target-path }}
+        TARGET_FILENAME: ${{ inputs.target-filename }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         if [ -z "$FTP_HOST" ] || [ -z "$FTP_USER" ] || [ -z "$FTP_PASSWORD" ]; then
@@ -80,11 +85,22 @@ runs:
           fi
           echo "Warning: No files found to upload matching '$SRC'"
         else
+          if [[ -n "$TARGET_FILENAME" && ${#FILES[@]} -ne 1 ]]; then
+            echo "::error::target-filename can only be used when exactly one source file is selected."
+            exit 1
+          fi
+          if [[ "$TARGET_FILENAME" == */* || "$TARGET_FILENAME" == *\\* || "$TARGET_FILENAME" == "." || "$TARGET_FILENAME" == ".." ]]; then
+            echo "::error::target-filename must be a filename without path components."
+            exit 1
+          fi
           for FILE in "${FILES[@]}"; do
             BASENAME=$(basename "$FILE")
             if [[ -n "$EXCLUDE_PATTERN" && "$BASENAME" == $EXCLUDE_PATTERN ]]; then
               echo "Skipping excluded file: $FILE"
               continue
+            fi
+            if [[ -n "$TARGET_FILENAME" ]]; then
+              BASENAME="$TARGET_FILENAME"
             fi
             TARGET_PATH="$DST/$BASENAME"
             echo "Uploading $FILE -> $TARGET_PATH"
