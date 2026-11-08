@@ -60,6 +60,10 @@ runs:
         shopt -s globstar nullglob
         SRC="$SOURCE_PATH"
         DST="$TARGET_PATH"
+        while [[ "$DST" == *//* ]]; do
+          DST="${DST//\/\//\/}"
+        done
+        DST="${DST%/}"
 
         echo "Starting FTP upload from: $SRC to target: $DST"
 

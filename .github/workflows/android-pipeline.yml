@@ -57,7 +57,7 @@ on:
         default: "*-androidTest.apk"
 
       ftp-target-path:
-        description: "Target directory on the FTP server"
+        description: "Base target directory on the FTP server (APKs are uploaded to its latest subdirectory)"
         required: false
         type: string
         default: ""
@@ -189,7 +189,7 @@ jobs:
         with:
           source-path: ${{ inputs.ftp-source-path }}
           exclude-pattern: ${{ inputs.ftp-exclude-pattern }}
-          target-path: ${{ inputs.ftp-target-path }}
+          target-path: ${{ inputs.ftp-target-path }}/latest
           ftp-host: ${{ secrets.FTP_HOST }}
           ftp-user: ${{ secrets.FTP_USER }}
           ftp-password: ${{ secrets.FTP_PASSWORD }}
