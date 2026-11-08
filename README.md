@@ -135,6 +135,8 @@ Uploads build outputs (e.g., APKs or zip packages) directly via `curl --ftp-ssl`
     target-path: "apps/my-app"
     # Optional: rename a single uploaded file at the destination.
     target-filename: "my-app.apk"
+    # Optional: remove a trailing -vX.Y version from APK filenames.
+    normalize-apk-version: "true"
     ftp-host: ${{ secrets.FTP_HOST }}
     ftp-user: ${{ secrets.FTP_USER }}
     ftp-password: ${{ secrets.FTP_PASSWORD }}

@@ -190,6 +190,7 @@ jobs:
           source-path: ${{ inputs.ftp-source-path }}
           exclude-pattern: ${{ inputs.ftp-exclude-pattern }}
           target-path: ${{ inputs.ftp-target-path }}/latest
+          normalize-apk-version: "true"
           ftp-host: ${{ secrets.FTP_HOST }}
           ftp-user: ${{ secrets.FTP_USER }}
           ftp-password: ${{ secrets.FTP_PASSWORD }}

@@ -16,6 +16,10 @@ inputs:
     description: "Optional destination filename for a single uploaded file"
     required: false
     default: ""
+  normalize-apk-version:
+    description: "Remove a trailing -vX.Y... version segment from uploaded APK filenames"
+    required: false
+    default: "false"
   ftp-host:
     description: "FTP Server Host"
     required: false
@@ -46,6 +50,7 @@ runs:
         EXCLUDE_PATTERN: ${{ inputs.exclude-pattern }}
         TARGET_PATH: ${{ inputs.target-path }}
         TARGET_FILENAME: ${{ inputs.target-filename }}
+        NORMALIZE_APK_VERSION: ${{ inputs.normalize-apk-version }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         if [ -z "$FTP_HOST" ] || [ -z "$FTP_USER" ] || [ -z "$FTP_PASSWORD" ]; then
@@ -105,6 +110,8 @@ runs:
             fi
             if [[ -n "$TARGET_FILENAME" ]]; then
               BASENAME="$TARGET_FILENAME"
+            elif [[ "$NORMALIZE_APK_VERSION" == "true" && "$BASENAME" =~ ^(.*)-v[0-9]+(\.[0-9]+)*(-[0-9A-Za-z.-]+)?(\.apk)$ ]]; then
+              BASENAME="${BASH_REMATCH[1]}${BASH_REMATCH[4]}"
             fi
             TARGET_PATH="$DST/$BASENAME"
             echo "Uploading $FILE -> $TARGET_PATH"
