@@ -145,13 +145,8 @@ jobs:
           set +o pipefail
           yes | sdkmanager --licenses
 
-      - name: Gradle Cache
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-release-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Run Unit Tests
         if: ${{ inputs.run-unit-tests }}
